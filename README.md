@@ -15,7 +15,7 @@
 
 ###
 ### Example Render
-![Example Render](images/0.jpg)
-![Example Render](images/1.jpg)
-![Example Render](images/2.jpg)
-![Example Render](images/3.jpg)
+<img src="images/0.jpg" alt="Example Render" width="300"/>
+<img src="images/1.jpg" alt="Example Render" width="300"/>
+<img src="images/2.jpg" alt="Example Render" width="300"/>
+<img src="images/3.jpg" alt="Example Render" width="300"/>
