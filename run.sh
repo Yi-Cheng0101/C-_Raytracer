@@ -7,4 +7,4 @@ cd build
 cmake ..
 make
 #./A4 ../resources
-/Users/yicheng/Desktop/A6/build/A6 10 512 output.jpg
+/Users/yicheng/Desktop/C_Raytracer/build/A6 1 512 output.jpg

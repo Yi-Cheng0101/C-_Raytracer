@@ -19,10 +19,6 @@
 
 #include "Image.h"
 
-
-// This allows you to skip the `std::` in front of C++ standard library
-// functions. You can also say `using std::cout` to be more selective.
-// You should never do this in a header file.
 #include <fstream>
 #include <limits>
 #include <cmath>
@@ -301,43 +297,226 @@ class Plane : public Model{
 	}
 };
 
-//  Ref: "Fundamentals of Computer Graphics" by Peter Shirley
-class Box : public Model {
+
+class Cylinder : public Model {
 public:
-    glm::vec3 halfSizes; 
+    float Radius;
+    float Height;
 
-    Box(const glm::vec3& position, const glm::vec3& rotation, const glm::vec3& scale, const Material& material)
-        : Model(position, rotation, scale, material), halfSizes(scale) {}
+    Cylinder(const glm::vec3& position, const glm::vec3& rotation, const glm::vec3& scale, const Material& material, float radius, float height)
+        : Model(position, rotation, scale, material), Radius(radius), Height(height) {}
 
-    virtual bool intersect(const Ray& ray, float& t, glm::vec3& hit_normal) const override {
-        // Implement the intersection logic here
-        glm::vec3 tMin = (Position - halfSizes - ray.origin) / ray.direction;
-        glm::vec3 tMax = (Position + halfSizes - ray.origin) / ray.direction;
-        
-        glm::vec3 t1 = glm::min(tMin, tMax);
-        glm::vec3 t2 = glm::max(tMin, tMax);
+    bool intersect(const Ray& ray, float& t_closest, glm::vec3& hit_normal) const override {
+        glm::mat4 transform = glm::translate(glm::mat4(1.0f), Position) *
+                              glm::rotate(glm::mat4(1.0f), glm::radians(Rotation.x), glm::vec3(1, 0, 0)) *  // Rotate around Y-axis by Rotation.y degrees
+                              glm::scale(glm::mat4(1.0f), Scale);
 
-        float tNear = std::max(std::max(t1.x, t1.y), t1.z);
-        float tFar = std::min(std::min(t2.x, t2.y), t2.z);
+        glm::mat4 invTransform = glm::inverse(transform);
 
-        if (tNear > tFar || tFar < 0.0f) {
-            return false; // No intersection
+        // Transform ray to local space
+        glm::vec4 ray_origin = invTransform * glm::vec4(ray.origin, 1.0f);
+        glm::vec4 ray_direction = invTransform * glm::vec4(ray.direction, 0.0f);
+
+        glm::vec3 d = glm::vec3(ray_direction);
+        glm::vec3 o = glm::vec3(ray_origin);
+
+        // Initialize t_closest
+        t_closest = std::numeric_limits<float>::max();
+        bool intersected = false;
+
+        // Cylinder side intersection
+        float a = d.x * d.x + d.z * d.z;
+        float b = 2 * (o.x * d.x + o.z * d.z);
+        float c = o.x * o.x + o.z * o.z - Radius * Radius;
+
+        float delta = b * b - 4 * a * c;
+
+        if (delta >= 0) {
+            float t1 = (-b - std::sqrt(delta)) / (2 * a);
+            float t2 = (-b + std::sqrt(delta)) / (2 * a);
+
+            float ts[] = { t1, t2 };
+            for (float t : ts) {
+                if (t >= 0) {
+                    glm::vec3 p = o + d * t;
+                    float y = p.y;
+                    if (y >= 0 && y <= Height) {
+                        if (t < t_closest) {
+                            t_closest = t;
+                            hit_normal = glm::normalize(glm::vec3(p.x, 0, p.z));  // Normal for the cylindrical surface
+                            intersected = true;
+                        }
+                    }
+                }
+            }
         }
 
-        t = tNear;
-
-        // Determine the hit normal
-        if (tNear == t1.x) {
-            hit_normal = glm::vec3((tMin.x > tMax.x) ? 1.0f : -1.0f, 0.0f, 0.0f);
-        } else if (tNear == t1.y) {
-            hit_normal = glm::vec3(0.0f, (tMin.y > tMax.y) ? 1.0f : -1.0f, 0.0f);
-        } else {
-            hit_normal = glm::vec3(0.0f, 0.0f, (tMin.z > tMax.z) ? 1.0f : -1.0f);
+        // Top cap intersection
+        float t_top = (Height - o.y) / d.y;
+        if (t_top >= 0) {
+            glm::vec3 p = o + d * t_top;
+            if (glm::length(glm::vec2(p.x, p.z)) <= Radius) {
+                if (t_top < t_closest) {
+                    t_closest = t_top;
+                    hit_normal = glm::vec3(0, 1, 0);  // Normal for the top cap
+                    intersected = true;
+                }
+            }
         }
 
-        return true; // There is an intersection
+        // Bottom cap intersection
+        float t_bottom = -o.y / d.y;
+        if (t_bottom >= 0) {
+            glm::vec3 p = o + d * t_bottom;
+            if (glm::length(glm::vec2(p.x, p.z)) <= Radius) {
+                if (t_bottom < t_closest) {
+                    t_closest = t_bottom;
+                    hit_normal = glm::vec3(0, -1, 0);  // Normal for the bottom cap
+                    intersected = true;
+                }
+            }
+        }
+
+        // Transform normal back to world space
+        if (intersected) {
+            glm::vec4 hit_normal_world = glm::transpose(invTransform) * glm::vec4(hit_normal, 0.0f);
+            hit_normal = glm::normalize(glm::vec3(hit_normal_world));
+        }
+
+        return intersected;
     }
 };
+
+class Torus : public Model {
+public:
+    float majorRadius;
+    float minorRadius;
+
+    Torus(const glm::vec3& position, const glm::vec3& rotation, const glm::vec3& scale, const Material& material, float majorRadius, float minorRadius)
+        : Model(position, rotation, scale, material), majorRadius(majorRadius), minorRadius(minorRadius) {}
+
+    virtual bool intersect(const Ray& ray, float& t, glm::vec3& hit_normal) const override {
+        // Transform the ray into object space
+        glm::vec3 ro = glm::inverse(transformMatrix()) * glm::vec4(ray.origin, 1.0);
+        glm::vec3 rd = glm::inverse(glm::mat3(transformMatrix())) * ray.direction;
+
+        float ox = ro.x, oy = ro.y, oz = ro.z;
+        float dx = rd.x, dy = rd.y, dz = rd.z;
+
+        float sum_d_sqrd = dx * dx + dy * dy + dz * dz;
+        float e = ox * ox + oy * oy + oz * oz - majorRadius * majorRadius - minorRadius * minorRadius;
+        float f = ox * dx + oy * dy + oz * dz;
+        
+        float four_a_sqrd = 4.0f * majorRadius * majorRadius;
+
+        float a = sum_d_sqrd * sum_d_sqrd;
+        float b = 4.0f * sum_d_sqrd * f;
+        float c = 2.0f * sum_d_sqrd * e + 4.0f * f * f + four_a_sqrd * dz * dz;
+        float d = 4.0f * e * f + 2.0f * four_a_sqrd * oz * dz;
+        float e = e * e - four_a_sqrd * (minorRadius * minorRadius - oz * oz);
+
+        std::vector<float> roots = solveQuartic(a, b, c, d, e);
+
+        if (roots.empty()) return false;
+
+        t = std::numeric_limits<float>::max();
+
+        for (float root : roots) {
+            if (root > 0 && root < t) {
+                t = root;
+            }
+        }
+
+        if (t == std::numeric_limits<float>::max()) return false;
+
+        glm::vec3 hit_point = ro + t * rd;
+        glm::vec3 normal = glm::normalize(glm::vec3(
+            4.0f * hit_point.x * (hit_point.x * hit_point.x + hit_point.y * hit_point.y + hit_point.z * hit_point.z - majorRadius * majorRadius - minorRadius * minorRadius),
+            4.0f * hit_point.y * (hit_point.x * hit_point.x + hit_point.y * hit_point.y + hit_point.z * hit_point.z - majorRadius * majorRadius - minorRadius * minorRadius),
+            4.0f * hit_point.z * (hit_point.x * hit_point.x + hit_point.y * hit_point.y + hit_point.z * hit_point.z - majorRadius * majorRadius - minorRadius * minorRadius)
+        ));
+
+        hit_normal = glm::normalize(glm::mat3(glm::transpose(glm::inverse(transformMatrix()))) * normal);
+
+        return true;
+    }
+
+private:
+    glm::mat4 transformMatrix() const {
+        glm::mat4 translation = glm::translate(glm::mat4(1.0f), Position);
+        glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), Rotation.x, glm::vec3(1.0f, 0.0f, 0.0f))
+                           * glm::rotate(glm::mat4(1.0f), Rotation.y, glm::vec3(0.0f, 1.0f, 0.0f))
+                           * glm::rotate(glm::mat4(1.0f), Rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+        glm::mat4 scale = glm::scale(glm::mat4(1.0f), Scale);
+
+        return translation * rotation * scale;
+    }
+
+    // Define solveQuartic function here (or include your quartic solver)
+};
+
+
+/*
+class Box : public Model {
+public:
+    glm::vec3 minLocal;  // Local space minimum corner
+    glm::vec3 maxLocal;  // Local space maximum corner
+
+    Box(const glm::vec3& position, const glm::vec3& rotation, const glm::vec3& scale, const Material& material,
+        const glm::vec3& minLocal, const glm::vec3& maxLocal)
+        : Model(position, rotation, scale, material), minLocal(minLocal), maxLocal(maxLocal) {}
+
+    bool intersect(const Ray& ray, float& t, glm::vec3& hit_normal) const override {
+        // Create transformation matrix
+        glm::mat4 modelMatrix = glm::translate(glm::mat4(1.0f), Position) *
+                                glm::scale(glm::mat4(1.0f), Scale) *
+                                glm::orientate4(Rotation);
+
+        // Inverse transformation matrix to bring ray into the object's local space
+        glm::mat4 invModelMatrix = glm::inverse(modelMatrix);
+        glm::vec4 rayOriginLocal = invModelMatrix * glm::vec4(ray.origin, 1.0f);
+        glm::vec4 rayDirectionLocal = invModelMatrix * glm::vec4(ray.direction, 0.0f);
+
+        // Compute intersections in local space
+        Ray rayLocal;
+        rayLocal.origin = glm::vec3(rayOriginLocal);
+        rayLocal.direction = glm::normalize(glm::vec3(rayDirectionLocal));
+
+        // AABB intersection test in local space
+        glm::vec3 t0 = (minLocal - rayLocal.origin) / rayLocal.direction;
+        glm::vec3 t1 = (maxLocal - rayLocal.origin) / rayLocal.direction;
+        glm::vec3 tmin = glm::min(t0, t1);
+        glm::vec3 tmax = glm::max(t0, t1);
+
+        float tminMax = std::max(std::max(tmin.x, tmin.y), tmin.z);
+        float tmaxMin = std::min(std::min(tmax.x, tmax.y), tmax.z);
+
+        if (tmaxMin < 0 || tminMax > tmaxMin) {
+            return false;  // No intersection
+        }
+
+        t = tminMax;
+        hit_normal = computeNormal(rayLocal, t, tmin, tmax);
+        // Transform normal back to world space
+        glm::vec4 hit_normal_world = glm::transpose(invModelMatrix) * glm::vec4(hit_normal, 0.0f);
+        hit_normal = glm::normalize(glm::vec3(hit_normal_world));
+
+        return true;
+    }
+
+private:
+    glm::vec3 computeNormal(const Ray& ray, float t, const glm::vec3& tmin, const glm::vec3& tmax) const {
+        glm::vec3 pt = ray.origin + t * ray.direction;
+        glm::vec3 normal;
+        for (int i = 0; i < 3; ++i) {
+            if (pt[i] <= minLocal[i] + 0.001f) normal[i] = -1;
+            else if (pt[i] >= maxLocal[i] - 0.001f) normal[i] = 1;
+        }
+        return normal;
+    }
+};
+
+*/
 
 
 class Vertice{
@@ -402,6 +581,8 @@ void task4(int width, int height, string filename);
 void task5(int width, int height, string filename);
 void task8(int width, int height, string filename);
 void task9(int width, int height, string filename);
+void task10(int width, int height, string filename);
+
 
 int main(int argc, char **argv)
 {
@@ -450,6 +631,10 @@ int main(int argc, char **argv)
 		case 9:
 			// motion blur with antialiasing
 			task9(image_size, image_size, file_name);
+			break;
+		case 10:
+			// motion blur with antialiasing
+			task10(image_size, image_size, file_name);
 			break;
         default:
             break;
@@ -1013,10 +1198,10 @@ void task0(int width, int height, std::string filename){
 	// pos rotate scale material 
 
 	// box
-	Material boxMaterial(glm::vec3(0.1, 0.2, 0.1), glm::vec3(0.0, 0.8, 0.0), glm::vec3(0.1, 0.1, 0.1), 32.0f, false);
-    models.push_back(std::make_unique<Box>(glm::vec3(1.0, 0.7, 0.5), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.2, 0.2, 0.2), boxMaterial));
-	models.push_back(std::make_unique<Box>(glm::vec3(1.0, 0.3, 1.7), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.2, 0.2, 0.2), boxMaterial));
-	models.push_back(std::make_unique<Box>(glm::vec3(0.5, 0.5, -0.9), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.2, 0.2, 0.2), boxMaterial));
+	//Material boxMaterial(glm::vec3(0.1, 0.2, 0.1), glm::vec3(0.0, 0.8, 0.0), glm::vec3(0.1, 0.1, 0.1), 32.0f, false);
+    //models.push_back(std::make_unique<Box>(glm::vec3(1.0, 0.7, 0.5), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.2, 0.2, 0.2), boxMaterial));
+	//models.push_back(std::make_unique<Box>(glm::vec3(1.0, 0.3, 1.7), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.2, 0.2, 0.2), boxMaterial));
+	//models.push_back(std::make_unique<Box>(glm::vec3(0.5, 0.5, -0.9), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.2, 0.2, 0.2), boxMaterial));
 
     models.push_back(std::make_unique<Sphere>(glm::vec3(-0.5, -1.0, 1.0), glm::vec3(0.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 1.0), Red_M));
     models.push_back(std::make_unique<Sphere>(glm::vec3(0.5, -1.0, -1.0), glm::vec3(0.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 1.0), Green_M));
@@ -1057,10 +1242,10 @@ void task9(int width, int height, string filename){
 	models.push_back(std::make_unique<Sphere>(glm::vec3(0.5, -1.0, -1.0), glm::vec3(0.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 1.0), Green_M));
     models.push_back(std::make_unique<Sphere>(glm::vec3(0.0, 1.0, 0.0),   glm::vec3(0.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 1.0), Blue_M));
 	
-	Material boxMaterial(glm::vec3(0.1, 0.2, 0.1), glm::vec3(0.0, 0.8, 0.0), glm::vec3(0.1, 0.1, 0.1), 32.0f, false);
-    models.push_back(std::make_unique<Box>(glm::vec3(1.0, 0.7, 0.5), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.2, 0.2, 0.2), boxMaterial));
-	models.push_back(std::make_unique<Box>(glm::vec3(1.0, 0.3, 1.7), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.2, 0.2, 0.2), boxMaterial));
-	models.push_back(std::make_unique<Box>(glm::vec3(0.5, 0.5, -0.9), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.2, 0.2, 0.2), boxMaterial));
+	//Material boxMaterial(glm::vec3(0.1, 0.2, 0.1), glm::vec3(0.0, 0.8, 0.0), glm::vec3(0.1, 0.1, 0.1), 32.0f, false);
+    //models.push_back(std::make_unique<Box>(glm::vec3(1.0, 0.7, 0.5), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.2, 0.2, 0.2), boxMaterial));
+	//models.push_back(std::make_unique<Box>(glm::vec3(1.0, 0.3, 1.7), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.2, 0.2, 0.2), boxMaterial));
+	//models.push_back(std::make_unique<Box>(glm::vec3(0.5, 0.5, -0.9), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.2, 0.2, 0.2), boxMaterial));
     auto image = make_shared<Image>(width, height);
     Camera camera(glm::vec3(0.0f, 0.0f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f), 45.0f, 1.0f, width, height);
 
@@ -1092,4 +1277,67 @@ void task9(int width, int height, string filename){
         }
     }
     image->writeToFile(filename);
+}
+
+
+
+void task10(int width, int height, string filename){
+	// camera 
+	Camera camera(glm::vec3(0.0f, 0.0f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f), 45.0f, 1.0f, width, height);
+
+	// light 1 and light 2
+	vector<Light> lights{
+        Light(glm::vec3(-1.0, 2.0, 1.0), 0.5f)//,
+        //Light(glm::vec3(0.5, -0.5, 0.0), 0.5f)
+    };
+
+	// scene 
+	std::vector<std::unique_ptr<Model>> models;
+
+	// material 
+   	Material redMaterial(glm::vec3(1.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 0.5), glm::vec3(0.1, 0.1, 0.1), 100.0f, false);
+    Material blueMaterial(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(1.0f, 1.0f, 0.5f), glm::vec3(0.1f, 0.1f, 0.1f), 100.0f, false);
+	Material R_Material(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), 100.0f, true);
+	Material floorMaterial(glm::vec3(1.0, 1.0, 1.0), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.1, 0.1, 0.1), 0.0f, false);                   
+	Material wallMaterial(glm::vec3(1.0, 1.0, 1.0),  glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.1, 0.1, 0.1), 0.0f, false);                   
+	
+	//Material boxMaterial(glm::vec3(0.1, 0.2, 0.1), glm::vec3(0.0, 0.8, 0.0), glm::vec3(0.1, 0.1, 0.1), 32.0f, false);
+
+	// cylinder material 
+	//Material CylinderMaterial(glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), 100.0f, true);
+	Material CylinderMaterial(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(1.0f, 1.0f, 0.5f), glm::vec3(0.1f, 0.1f, 0.1f), 100.0f, false);
+
+	// sphere
+    //models.push_back(std::make_unique<Sphere>(glm::vec3(0.5, -0.7, 0.5), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.3, 0.3, 0.3), redMaterial));
+    //models.push_back(std::make_unique<Sphere>(glm::vec3(1.0, -0.7, 0.0), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.3, 0.3, 0.3), blueMaterial));
+	//models.push_back(std::make_unique<Sphere>(glm::vec3(-0.5, 0.0, -0.5), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0, 1.0, 1.0), R_Material));
+	//models.push_back(std::make_unique<Sphere>(glm::vec3(1.5, 0.0, -1.5), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0, 1.0, 1.0),  R_Material));
+
+	// Floor
+	models.push_back(std::make_unique<Plane>(glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(1.0, 1.0, 1.0), floorMaterial));
+
+	// Wall
+	models.push_back(std::make_unique<Plane>(glm::vec3(0.0f, 0.0f, -3.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(1.0, 1.0, 1.0), wallMaterial));
+
+	// cylinder 
+	//Cylinder cylinder(glm::vec3(0, 0, 0), glm::vec3(0), glm::vec3(1), mat, 1.0f, 2.0f);
+	models.push_back(std::make_unique<Cylinder>(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(60.0f, 30.0f, 60.0f), glm::vec3(1.0, 1.0, 1.0), CylinderMaterial, 0.8f, 0.5f));
+
+	// image 
+	auto image = make_shared<Image>(width, height);   
+
+    // Render the scene
+    for (int y = 0; y < camera.Image_height; ++y) {
+        for (int x = 0; x < camera.Image_width; ++x) {
+            Ray ray = camera.generate_ray(x, y);
+			glm::vec3 color = traceRayRecursive_new(0.0f, INF, ray, models, lights, 1000);
+			color.r = std::clamp(color.r, 0.0f, 1.0f);
+    		color.g = std::clamp(color.g, 0.0f, 1.0f);
+    		color.b = std::clamp(color.b, 0.0f, 1.0f);
+			color = color * 255.0f;
+            image->setPixel(x, y, color.r , color.g, color.b);
+        }
+    }
+	image->writeToFile(filename);
+	return ;
 }
