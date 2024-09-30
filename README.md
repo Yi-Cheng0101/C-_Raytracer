@@ -3,26 +3,26 @@
 **Texas A&M University**
 
 * Yi-Cheng Hsiao
-  * [LinkedIn](https://yicheng.tw/), [personal website](https://www.linkedin.com/in/yi-cheng-hsiao/)
+  * [LinkedIn](https://www.linkedin.com/in/yi-cheng-hsiao/), [personal website](https://yicheng.tw/)
 * Tested on: Apple M1 Pro
   
 ### Framework
 * #### Four all features:
   ##### Basic features
-  *    - [x] **Sphere**  - [ ] process the image pixels in parallel.  
-  *    **Box** - [ ] process the image pixels in parallel.  
-  *    **Cylinders** - [ ] process the image pixels in parallel.  
-  *    **Multithreading** - [ ] process the image pixels in parallel.  
-  *    **Multithreading** - [ ] process the image pixels in parallel.  
-  *    **Multithreading** - [ ] process the image pixels in parallel.  
-  *    **Multithreading** - [ ] process the image pixels in parallel.  
-  *    **Multithreading** - [ ] process the image pixels in parallel.  
-  *    **Multithreading** - [ ] process the image pixels in parallel.  
+  *    - [x] **Sphere**  - process the image pixels in parallel.  
+  *    - [x] **Box** - process the image pixels in parallel.  
+  *    - [ ] **Cylinders** - process the image pixels in parallel.  
+  *    - [ ] **Multithreading** - [ ] process the image pixels in parallel.  
+  *    - [ ] **Multithreading** - [ ] process the image pixels in parallel.  
+  *    - [ ] **Multithreading** - [ ] process the image pixels in parallel.  
+  *    - [ ] **Multithreading** - [ ] process the image pixels in parallel.  
+  *    - [ ] **Multithreading** - [ ] process the image pixels in parallel.  
+  *    - [ ] **Multithreading** - [ ] process the image pixels in parallel.  
   ##### Advanced features
-  *    **Multithreading** - process the image pixels in parallel.  
-  *    **Antialiasing** -  by generating multiple primary rays per pixel and averaging.
-  *    **Add Box** 
-  *    **Motion blur** - have a moving object, and average the result of multiple renders.
+  *    - [ ] **Multithreading** - process the image pixels in parallel.  
+  *    - [ ] **Antialiasing** -  by generating multiple primary rays per pixel and averaging.
+  *    - [ ] **Add Box** 
+  *    - [ ] **Motion blur** - have a moving object, and average the result of multiple renders.
   ##### Basic features
   *    **Scene 1: without shadows**
 [15] Scene 2: with shadows
