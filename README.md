@@ -8,10 +8,22 @@
   
 ### Framework
 * #### Four all features:
+  ##### Basic features
+  *    **Sphere** - process the image pixels in parallel.  
+  *    **Box** - process the image pixels in parallel.  
+  *    **Cylinders** - process the image pixels in parallel.  
   *    **Multithreading** - process the image pixels in parallel.  
-  *    **Antialiasing** by generating multiple primary rays per pixel and averaging.
+  *    **Multithreading** - process the image pixels in parallel.  
+  *    **Multithreading** - process the image pixels in parallel.  
+  *    **Multithreading** - process the image pixels in parallel.  
+  *    **Multithreading** - process the image pixels in parallel.  
+  *    **Multithreading** - process the image pixels in parallel.  
+  ##### Advanced features
+  *    **Multithreading** - process the image pixels in parallel.  
+  *    **Antialiasing** -  by generating multiple primary rays per pixel and averaging.
   *    **Add Box** 
   *    **Motion blur** - have a moving object, and average the result of multiple renders.
+  ##### Basic features
 [10] Scene 1: without shadows
 [15] Scene 2: with shadows
 [15] Scene 3: with multiple lights
