@@ -9,7 +9,7 @@
 ### Framework
 * #### Four all features:
   ##### Basic features
-  *    **Sphere**  - [ ] process the image pixels in parallel.  
+  *    - [x] **Sphere**  - [ ] process the image pixels in parallel.  
   *    **Box** - [ ] process the image pixels in parallel.  
   *    **Cylinders** - [ ] process the image pixels in parallel.  
   *    **Multithreading** - [ ] process the image pixels in parallel.  
