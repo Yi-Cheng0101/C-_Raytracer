@@ -18,10 +18,10 @@
   *    - [ ] **Multithreading** - [ ] process the image pixels in parallel.  
   *    - [ ] **Multithreading** - [ ] process the image pixels in parallel.  
   *    - [ ] **Multithreading** - [ ] process the image pixels in parallel.  
-  ##### Advanced features
-  *    - [ ] **Multithreading** - process the image pixels in parallel.  
-  *    - [ ] **Antialiasing** -  by generating multiple primary rays per pixel and averaging.
-  *    - [ ] **Add Box** 
+  ##### Material features
+  *    - [ ] **Reflective** - process the image pixels in parallel.  
+  *    - [ ] **Refraction** -  by generating multiple primary rays per pixel and averaging.
+  *    - [ ] **Include a texture-mapped object** -
   *    - [ ] **Motion blur** - have a moving object, and average the result of multiple renders.
   ##### Basic features
   *    **Scene 1: without shadows**
@@ -35,7 +35,7 @@
 [+20] Bonus up to 20 points
 [+50] Hardware Acceleration
 
-[+3] Infinite cylinders – you may use online code as long as you cite it in the README.
+  *    - [x] **Sphere**  - process the image pixels in parallel.  [+3] Infinite cylinders – you may use online code as long as you cite it in the README.
 [+3] Boxes – you may use online code as long as you cite it in the README.
 [+3] Include an object or region that will attenuate light (reduce certain color of light based on distance traveled through that region – e.g., think colored glass, or fog).
 [+5] Multithreading – process the image pixels in parallel.
@@ -47,7 +47,6 @@
 [+5] Create “area” light sources that consist of multiple nearby points.
 [+5] Generate multiple reflection rays that spread out around the “exact” reflection to simulate surface roughness. The reflection calculation for the point is the average of these reflection rays.
 [+5] Include a texture-mapped object.
-[+8] Refraction
 [+10] Ambient occlusion
 [+20] Monte Carlo path tracing
 
